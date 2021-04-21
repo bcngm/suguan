@@ -84,10 +84,34 @@
                 </el-col>
               </el-row>
               <br />
-              <el-button type="primary" icon="el-icon-plus">新增</el-button>
+              <el-button type="primary" @click="dialogFormVisible = true" icon="el-icon-plus">新增</el-button>
               <el-button type="success" icon="el-icon-edit" disabled>修改</el-button>
               <el-button type="danger" icon="el-icon-delete" disabled>删除</el-button>
             </div>
+
+            <!-- 添加班级信息 -->
+            <el-dialog title="添加班级信息" :visible.sync="dialogFormVisible">
+              <el-form :model="form">
+                <el-form-item label="班级名称" style="width:323px" :label-width="formLabelWidth">
+                  <el-input v-model="form.name" autocomplete="off"></el-input>
+                </el-form-item>
+                <el-form-item label="班主任" :label-width="formLabelWidth">
+                  <el-select v-model="form.region" placeholder="请选择活动区域">
+                    <el-option
+                      :label="item.username"
+                      v-text="item.username"
+                      :value="key"
+                      v-for="(item,key) in wn"
+                      :key="key"
+                    ></el-option>
+                  </el-select>
+                </el-form-item>
+              </el-form>
+              <div slot="footer" class="dialog-footer">
+                <el-button @click="dialogFormVisible = false">取 消</el-button>
+                <el-button type="primary" @click="dialogFormVisible = false,xinzheng()">确 定</el-button>
+              </div>
+            </el-dialog>
 
             <el-table
               ref="multipleTable"
@@ -97,7 +121,7 @@
               @selection-change="handleSelectionChange"
             >
               <el-table-column type="selection" width="55"></el-table-column>
-              <el-table-column label="序号" width="120">
+              <el-table-column class="zbc" label="序号" width="120">
                 <template slot-scope="scope">{{ scope.row.id }}</template>
               </el-table-column>
               <el-table-column label="班级名称" width="120">
@@ -123,11 +147,46 @@
                 </template>
               </el-table-column>
               <el-table-column prop="chaozuo" label="操作" width="120" show-overflow-tooltip>
-                <el-button type="success" icon="el-icon-edit" circle></el-button>
-                <el-button type="danger" icon="el-icon-delete" circle></el-button>
+                <template slot-scope="scope">
+                  <el-button
+                    type="success"
+                    icon="el-icon-edit"
+                    @click="FormVisible = true,xiougai(scope.row.id)"
+                    style="margin-right: 10px;"
+                    circle
+                  ></el-button>
+
+                  <el-popconfirm title="这是一段内容确定删除吗？" @confirm="querenshanchu(scope.row.id)">
+                    <el-button type="danger" slot="reference" icon="el-icon-delete" circle></el-button>
+                  </el-popconfirm>
+                </template>
               </el-table-column>
             </el-table>
           </Content>
+
+          <!-- 修改班级信息 -->
+          <el-dialog title="修改班级信息" :visible.sync="FormVisible">
+            <el-form :model="form2">
+              <el-form-item label="班级名称" style="width:323px" :label-width="formLabelWidth2">
+                <el-input v-model="xiougaidebanjiming" autocomplete="off" :disabled="true"></el-input>
+              </el-form-item>
+              <el-form-item label="班主任" :label-width="formLabelWidth2">
+                <el-select v-model="form2.region" placeholder="请选择活动区域">
+                  <el-option
+                    :label="item.username"
+                    v-text="item.username"
+                    :value="key"
+                    v-for="(item,key) in wn"
+                    :key="key"
+                  ></el-option>
+                </el-select>
+              </el-form-item>
+            </el-form>
+            <div slot="footer" class="dialog-footer">
+              <el-button @click="FormVisible = false">取 消</el-button>
+              <el-button type="primary" @click="FormVisible = false,quedingxiougai()">确 定</el-button>
+            </div>
+          </el-dialog>
 
           <div class="block" style="text-align: right;margin: 0 20px 20px 0">
             <el-pagination
@@ -233,6 +292,22 @@
 export default {
   data() {
     return {
+      xiougaidebanjiming: "",
+      xiougaiquanbu: {},
+      TableVisible: false,
+      FormVisible: false,
+      form2: {
+        name: "",
+        region: "",
+        date1: "",
+        date2: "",
+        delivery: false,
+        type: [],
+        resource: "",
+        desc: ""
+      },
+      formLabelWidth2: "120px",
+
       kaigaun: true,
       list: {},
       children: [],
@@ -257,8 +332,25 @@ export default {
       currentPage1: 5,
       currentPage2: 5,
       currentPage3: 5,
-      currentPage4: 4,
-      total: 0
+      currentPage4: 1,
+      total: 0,
+      yeshu: 1,
+      tiaoshu: 10,
+      bianhao: 0,
+      dialogTableVisible: false,
+      dialogFormVisible: false,
+      form: {
+        name: "",
+        region: "",
+        date1: "",
+        date2: "",
+        delivery: false,
+        type: [],
+        resource: "",
+        desc: ""
+      },
+      formLabelWidth: "120px",
+      wn: {}
     };
   },
   created() {
@@ -271,20 +363,17 @@ export default {
       }
     }).then(result => {
       this.list = result.data.data;
+      console.log(this.list)
     });
 
     //班级数据
-    this.axios({
-      method: "GET",
-      url:
-        "http://122.112.253.28:8095/prod-api/basedata/bclass/list?pageNum=1&pageSize=10",
-      headers: {
-        Authorization: window.sessionStorage.token
-      }
-    }).then(result => {
-      this.tableData = result.data.data.list;
-      this.total = result.data.data.total;
-    });
+    this.banjishuju(1, 10);
+
+    //下拉值
+    this.wanneng(
+      "http://122.112.253.28:8095/prod-api/sys/user/getClassTeacherList",
+      "GET"
+    );
   },
   computed: {
     rotateIcon() {
@@ -295,14 +384,114 @@ export default {
     }
   },
   methods: {
+    quedingxiougai() {
+      this.axios({
+        method: "PUT",
+        url:
+          "http://122.112.253.28:8095/prod-api/basedata/bclass/update/" +
+          this.xiougaiquanbu.id,
+        headers: {
+          Authorization: window.sessionStorage.token
+        },
+        data: {
+          className: this.xiougaiquanbu.className,
+          classTeacherId: this.wn[this.form2.region].id,
+          classTeacherName: null,
+          createTime: this.xiougaiquanbu.createTime,
+          id: this.xiougaiquanbu.id,
+          modifyTime: this.xiougaiquanbu.modifyTime,
+          status: null,
+          userId: 0
+        }
+      }).then(result => {
+        console.log(result);
+        this.banjishuju(this.yeshu, this.tiaoshu);
+        this.form2.region = "";
+      });
+    },
+    xiougai(id) {
+      this.axios({
+        method: "GET",
+        url: "http://122.112.253.28:8095/prod-api/basedata/bclass/" + id,
+        headers: {
+          Authorization: window.sessionStorage.token
+        }
+      }).then(result => {
+        (this.xiougaidebanjiming = result.data.data.className),
+          (this.xiougaiquanbu = result.data.data);
+      });
+    },
+
+    //3 10 12 13
+    xinzheng() {
+      this.axios({
+        method: "POST",
+        url: "http://122.112.253.28:8095/prod-api/basedata/bclass/create",
+        headers: {
+          Authorization: window.sessionStorage.token
+        },
+        data: {
+          className: this.form.name,
+          classTeacherId: this.wn[this.form.region].id,
+          status: "1"
+        }
+      }).then(result => {
+        console.log(result);
+        this.banjishuju(this.yeshu, this.tiaoshu);
+        (this.form.name = ""), (this.form.region = "");
+      });
+    },
+    wanneng(url, method) {
+      this.axios({
+        method: method,
+        url: url,
+        headers: {
+          Authorization: window.sessionStorage.token
+        }
+      }).then(result => {
+        this.wn = result.data.data;
+      });
+    },
+    querenshanchu(id) {
+      this.axios({
+        method: "DELETE",
+        url:
+          "http://122.112.253.28:8095/prod-api/basedata/bclass/deleteByIds/" +
+          id,
+        headers: {
+          Authorization: window.sessionStorage.token
+        }
+      }).then(result => {
+        console.log(result);
+        this.banjishuju(this.yeshu, this.tiaoshu);
+      });
+    },
+    banjishuju(yeshu, tiaoshu) {
+      this.axios({
+        method: "GET",
+        url:
+          "http://122.112.253.28:8095/prod-api/basedata/bclass/list?pageNum=" +
+          yeshu +
+          "&pageSize=" +
+          tiaoshu,
+        headers: {
+          Authorization: window.sessionStorage.token
+        }
+      }).then(result => {
+        this.tableData = result.data.data.list;
+        this.total = result.data.data.total;
+      });
+    },
     handleSelectionChange(val) {
       this.multipleSelection = val;
     },
     handleSizeChange(val) {
-      console.log(`每页 ${val} 条`);
+      this.tiaoshu = val;
+      this.banjishuju(this.yeshu, val);
     },
     handleCurrentChange(val) {
-      console.log(`当前页: ${val}`);
+      this.yeshu = val;
+      this.banjishuju(val, this.tiaoshu);
     }
   }
 };
